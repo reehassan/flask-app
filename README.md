@@ -12,5 +12,5 @@ This project automates a CI/CD pipeline for a Python Flask application using Git
 ## Setup Instructions
 1. **Clone the Repository**:
    ```bash
-   git clone <repo-url>
+   git clone https://github.com/reehassan/flask-app.git
    cd flask-app
