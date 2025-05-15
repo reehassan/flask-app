@@ -1,0 +1,45 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build Docker image
+        run: docker build -t flask-app:latest .
+
+      - name: Run tests
+        run: docker run flask-app:latest pytest tests/
+
+      - name: Login to AWS
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Deploy to Elastic Beanstalk
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          zip -r deploy.zip . -x ".git/*" ".github/*" "tests/*"
+          aws s3 cp deploy.zip s3://my-flask-app-bucket/deploy.zip
+          aws elasticbeanstalk create-application-version \
+            --application-name flask-app \
+            --version-label ${{ github.sha }} \
+            --source-bundle S3Bucket=my-flask-app-bucket,S3Key=deploy.zip
+          aws elasticbeanstalk update-environment \
+            --application-name flask-app \
+            --environment-name FlaskAppEnv \
+            --version-label ${{ github.sha }}
